@@ -49,8 +49,13 @@ let isSoundEnabled = true;
 
 // Global Audio Manager
 window.GlobalAudioManager = {
+    bgMusic: new window.Audio('https://cdn.pixabay.com/download/audio/2022/02/10/audio_fcdd720d2c.mp3'), // Sample BGM
     init: function() {
         try {
+            this.bgMusic.loop = true;
+            this.bgMusic.volume = 0.15;
+            this.bgMusic.crossOrigin = 'anonymous';
+
             if (!aCtx) {
                 aCtx = new (window.AudioContext || window.webkitAudioContext)();
                 masterGain = aCtx.createGain();
@@ -61,14 +66,36 @@ window.GlobalAudioManager = {
                 aCtx.resume();
             }
             
-            // Unlock SpeechSynthesis for iOS Safari async voice-overs (Listen Mode & Delays)
+            // Unlock Mobile Audio completely by playing a silent buffer
+            const buffer = aCtx.createBuffer(1, 1, 22050);
+            const source = aCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(aCtx.destination);
+            if (source.start) source.start(0);
+
+            // Unlock SpeechSynthesis for iOS Safari async voice-overs
             if (window.speechSynthesis) {
                 const emptyUtterance = new SpeechSynthesisUtterance('');
+                emptyUtterance.volume = 0;
                 window.speechSynthesis.speak(emptyUtterance);
             }
+
+            this.playBGM();
         } catch (e) {
-            console.warn("Audio Context not supported");
+            console.warn("Audio Context not supported", e);
         }
+    },
+    playBGM: function() {
+        if (isSoundEnabled && gameState.isRunning) {
+            this.bgMusic.play().catch(e => console.log('BGM prevented:', e));
+        }
+    },
+    stopBGM: function() {
+        this.bgMusic.pause();
+        this.bgMusic.currentTime = 0;
+    },
+    pauseBGM: function() {
+        this.bgMusic.pause();
     },
     setMute: function(mute) {
         isSoundEnabled = !mute;
@@ -79,17 +106,33 @@ window.GlobalAudioManager = {
         }
 
         if (mute) {
+            this.pauseBGM();
             if (synthVoice) synthVoice.cancel();
             if (masterGain && aCtx) {
-                masterGain.gain.setValueAtTime(0, aCtx.currentTime);
+                masterGain.gain.setTargetAtTime(0, aCtx.currentTime, 0.05); // Smooth mute
             }
         } else {
+            if (gameState.isRunning && !gameState.isPaused) {
+                this.bgMusic.play().catch(e => {});
+            }
             if (masterGain && aCtx) {
-                masterGain.gain.setValueAtTime(0.5, aCtx.currentTime);
+                masterGain.gain.setTargetAtTime(0.5, aCtx.currentTime, 0.05);
             }
         }
     }
 };
+
+// Global mobile audio unlock on interaction
+['touchstart', 'pointerdown'].forEach(evt => {
+    document.addEventListener(evt, () => {
+        if (aCtx && aCtx.state === 'suspended') {
+            aCtx.resume();
+        }
+        if (isSoundEnabled && gameState.isRunning && !gameState.isPaused && window.GlobalAudioManager.bgMusic.paused) {
+            window.GlobalAudioManager.bgMusic.play().catch(() => {});
+        }
+    }, { passive: true, once: true });
+});
 
 btnToggleSound.onclick = () => {
     window.GlobalAudioManager.setMute(isSoundEnabled);
@@ -128,7 +171,7 @@ function playPopSound(isCorrect = null) {
         // Envelope: Attack and sharp decay
         gainNode.gain.setValueAtTime(0, aCtx.currentTime);
         gainNode.gain.linearRampToValueAtTime(1, aCtx.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, aCtx.currentTime + 0.15);
+        gainNode.gain.linearRampToValueAtTime(0.001, aCtx.currentTime + 0.15); // Fixed for Safari bugs
 
         osc.start(aCtx.currentTime);
         osc.stop(aCtx.currentTime + 0.2);
@@ -256,11 +299,13 @@ function togglePause() {
     gameState.isPaused = !gameState.isPaused;
 
     if (gameState.isPaused) {
+        window.GlobalAudioManager.pauseBGM();
         clearInterval(gameState.loopTimer);
         document.querySelectorAll('.bubble').forEach(b => {
             b.getAnimations().forEach(a => a.pause());
         });
     } else {
+        if (isSoundEnabled) window.GlobalAudioManager.bgMusic.play().catch(()=>{});
         document.querySelectorAll('.bubble').forEach(b => {
             b.getAnimations().forEach(a => a.play());
         });
@@ -274,6 +319,7 @@ function stopGame() {
     gameState.isPaused = false;
     clearInterval(gameState.loopTimer);
     synthVoice.cancel(); // Stop any in-progress speech
+    if (window.GlobalAudioManager) window.GlobalAudioManager.stopBGM();
     gameCanvas.innerHTML = '';
     gameState.activeBubbles = [];
     quizTargetContainer.classList.add('hidden');
