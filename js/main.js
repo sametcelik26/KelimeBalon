@@ -183,6 +183,11 @@ modeCards.forEach(card => {
 });
 
 btnStartGame.onclick = () => {
+    // Unlock Audio Engine
+    if (window.GlobalAudioManager) {
+        window.GlobalAudioManager.init();
+    }
+
     const lvl = selectLevel.value;
     const cat = selectCat.value;
     const lang = selectLang.value;
