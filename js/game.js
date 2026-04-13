@@ -13,11 +13,24 @@ const feedbackText = document.getElementById('feedback-text');
 const quizTargetContainer = document.getElementById('quiz-target-container');
 const quizTargetWord = document.getElementById('quiz-target-word');
 const btnReplayAudio = document.getElementById('btn-replay-audio');
+const btnToggleSound = document.getElementById('btn-toggle-sound');
 
 // Audio Engine Synthesis
 let aCtx = null;
 let masterGain = null;
 let isSoundEnabled = true;
+
+btnToggleSound.onclick = () => {
+    isSoundEnabled = !isSoundEnabled;
+    btnToggleSound.innerText = isSoundEnabled ? '🔊' : '🔇';
+    
+    if (!isSoundEnabled) {
+        if (synthVoice) synthVoice.cancel();
+        if (masterGain) masterGain.gain.value = 0;
+    } else {
+        if (masterGain) masterGain.gain.value = 0.5;
+    }
+};
 
 // Pre-initialize synth engine
 function initAudioEngine() {
@@ -307,9 +320,14 @@ function spawnSpecificBubble(wordObj, xPosVW) {
     });
 
     // Interaction
-    b.onpointerdown = (e) => {
-        handleBubbleClick(wordObj, b, e.clientX, e.clientY, colors[1]);
+    const clickHandler = (e) => {
+        e.preventDefault();
+        const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+        const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+        handleBubbleClick(wordObj, b, clientX, clientY, colors[1]);
     };
+    b.addEventListener('pointerdown', clickHandler);
+    b.addEventListener('touchstart', clickHandler, {passive: false});
 
     // Remove if went off screen
     setTimeout(() => {
