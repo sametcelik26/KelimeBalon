@@ -10,40 +10,90 @@ const feedbackBanner = document.getElementById('feedback-banner');
 const feedbackTitle = document.getElementById('feedback-title');
 const feedbackText = document.getElementById('feedback-text');
 
+// Global Hit Detection (Bypasses mobile WebKit bugs on animated elements)
+gameCanvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (e.changedTouches && e.changedTouches.length > 0) {
+        checkBubbleHits(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    }
+}, {passive: false});
+
+gameCanvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+        checkBubbleHits(e.clientX, e.clientY);
+    }
+});
+
+function checkBubbleHits(x, y) {
+    if (!gameState.isRunning || gameState.isPaused || gameState.isTransitioning) return;
+    for (let i = gameState.activeBubbles.length - 1; i >= 0; i--) {
+        const b = gameState.activeBubbles[i];
+        if (b.classList.contains('popped')) continue;
+        const rect = b.getBoundingClientRect();
+        const pad = 15; // Generous mobile hitbox padding
+        if (x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad) {
+            handleBubbleClick(b.wordObj, b, x, y, b.colorString);
+            break; 
+        }
+    }
+}
+
 const quizTargetContainer = document.getElementById('quiz-target-container');
 const quizTargetWord = document.getElementById('quiz-target-word');
 const btnReplayAudio = document.getElementById('btn-replay-audio');
 const btnToggleSound = document.getElementById('btn-toggle-sound');
 
-// Audio Engine Synthesis
-let aCtx = null;
-let masterGain = null;
-let isSoundEnabled = true;
+// Global Audio Manager
+window.GlobalAudioManager = {
+    init: function() {
+        try {
+            if (!aCtx) {
+                aCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = aCtx.createGain();
+                masterGain.connect(aCtx.destination);
+                masterGain.gain.value = isSoundEnabled ? 0.5 : 0;
+            }
+            if (aCtx && aCtx.state === 'suspended') {
+                aCtx.resume();
+            }
+            
+            // Unlock SpeechSynthesis for iOS Safari async voice-overs (Listen Mode & Delays)
+            if (window.speechSynthesis) {
+                const emptyUtterance = new SpeechSynthesisUtterance('');
+                window.speechSynthesis.speak(emptyUtterance);
+            }
+        } catch (e) {
+            console.warn("Audio Context not supported");
+        }
+    },
+    setMute: function(mute) {
+        isSoundEnabled = !mute;
+        btnToggleSound.innerText = isSoundEnabled ? '🔊' : '🔇';
+        
+        if (aCtx && aCtx.state === 'suspended' && !mute) {
+            aCtx.resume();
+        }
+
+        if (mute) {
+            if (synthVoice) synthVoice.cancel();
+            if (masterGain && aCtx) {
+                masterGain.gain.setValueAtTime(0, aCtx.currentTime);
+            }
+        } else {
+            if (masterGain && aCtx) {
+                masterGain.gain.setValueAtTime(0.5, aCtx.currentTime);
+            }
+        }
+    }
+};
 
 btnToggleSound.onclick = () => {
-    isSoundEnabled = !isSoundEnabled;
-    btnToggleSound.innerText = isSoundEnabled ? '🔊' : '🔇';
-    
-    if (!isSoundEnabled) {
-        if (synthVoice) synthVoice.cancel();
-        if (masterGain) masterGain.gain.value = 0;
-    } else {
-        if (masterGain) masterGain.gain.value = 0.5;
-    }
+    window.GlobalAudioManager.setMute(isSoundEnabled);
 };
 
 // Pre-initialize synth engine
 function initAudioEngine() {
-    try {
-        if (!aCtx) {
-            aCtx = new (window.AudioContext || window.webkitAudioContext)();
-            masterGain = aCtx.createGain();
-            masterGain.connect(aCtx.destination);
-            masterGain.gain.value = 0.5; // Base volume
-        }
-    } catch (e) {
-        console.warn("Audio Context not supported");
-    }
+    window.GlobalAudioManager.init();
 }
 
 // Generate an ultra-satisfying bubble pop sound
@@ -263,6 +313,7 @@ function pickNewQuizTarget() {
 
     // Spawn just these choices
     gameCanvas.innerHTML = '';
+    gameState.activeBubbles = []; // Reset active array between rounds
     choices.forEach((w, index) => {
         // Distribute horizontally
         const xPos = 20 + (index * 30); // vw mapping: 20%, 50%, 80% roughly
@@ -319,26 +370,26 @@ function spawnSpecificBubble(wordObj, xPosVW) {
         fill: 'forwards'
     });
 
-    // Interaction
-    const clickHandler = (e) => {
-        e.preventDefault();
-        const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
-        const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
-        handleBubbleClick(wordObj, b, clientX, clientY, colors[1]);
-    };
-    b.addEventListener('pointerdown', clickHandler);
-    b.addEventListener('touchstart', clickHandler, {passive: false});
+    // Interaction properties stored for global hit detection
+    b.wordObj = wordObj;
+    b.colorString = colors[1];
 
     // Remove if went off screen
     setTimeout(() => {
-        if (b.parentNode && gameState.isRunning) {
-            const idx = gameState.activeBubbles.indexOf(b);
-            if (idx > -1) gameState.activeBubbles.splice(idx, 1);
-            b.remove();
-            if (gameState.mode !== 'learn' && wordObj.en === gameState.currentQuizTarget?.en) {
-                // Player missed the correct bubble!
-                handleMissTarget();
-            }
+        if (!b.parentNode || !gameState.isRunning) return;
+
+        // Prevent off-screen penalty if bubble was already correctly clicked and is celebrating!
+        if (b.classList.contains('popped') || b.classList.contains('bubble--correct')) {
+            return;
+        }
+
+        const idx = gameState.activeBubbles.indexOf(b);
+        if (idx > -1) gameState.activeBubbles.splice(idx, 1);
+        b.remove();
+        
+        if (gameState.mode !== 'learn' && wordObj.en === gameState.currentQuizTarget?.en) {
+            // Player truly missed the correct bubble!
+            handleMissTarget();
         }
     }, duration);
 }
@@ -366,6 +417,11 @@ function spawnBubbleBurst() {
 
 function popVisuals(element, x, y, particleColor) {
     element.classList.add('popped');
+    
+    // Automatically remove from active bounds array for performance
+    const idx = gameState.activeBubbles.indexOf(element);
+    if (idx > -1) gameState.activeBubbles.splice(idx, 1);
+    
     createParticles(x, y, particleColor);
     setTimeout(() => { if (element.parentNode) element.remove(); }, 200);
 }
