@@ -43,6 +43,10 @@ const quizTargetWord = document.getElementById('quiz-target-word');
 const btnReplayAudio = document.getElementById('btn-replay-audio');
 const btnToggleSound = document.getElementById('btn-toggle-sound');
 
+let aCtx = null;
+let masterGain = null;
+let isSoundEnabled = true;
+
 // Global Audio Manager
 window.GlobalAudioManager = {
     init: function() {
