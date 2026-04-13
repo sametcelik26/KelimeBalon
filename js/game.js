@@ -205,7 +205,8 @@ let gameState = {
     activeBubbles: [],
     loopTimer: null,
     spawnInterval: 2000,
-    currentQuizTarget: null // word object
+    currentQuizTarget: null, // word object
+    currentRoundId: 0
 };
 
 function startGame(mode, wordsPool, targetLang) {
@@ -289,6 +290,7 @@ function pickNewQuizTarget() {
     const correct = choices[Math.floor(Math.random() * 3)];
 
     gameState.currentQuizTarget = correct;
+    gameState.currentRoundId = Date.now(); // Unique ID for this round
 
     const targetText = gameState.voiceLang === 'fr' && correct.fr ? correct.fr : correct.en;
 
@@ -317,7 +319,7 @@ function pickNewQuizTarget() {
     choices.forEach((w, index) => {
         // Distribute horizontally
         const xPos = 20 + (index * 30); // vw mapping: 20%, 50%, 80% roughly
-        spawnSpecificBubble(w, xPos);
+        spawnSpecificBubble(w, xPos, gameState.currentRoundId);
     });
 }
 
@@ -332,7 +334,7 @@ function getRandomColorPair() {
     return pairs[Math.floor(Math.random() * pairs.length)];
 }
 
-function spawnSpecificBubble(wordObj, xPosVW) {
+function spawnSpecificBubble(wordObj, xPosVW, roundId = 0) {
     if (!gameState.isRunning || gameState.isPaused) return;
 
     const colors = getRandomColorPair();
@@ -377,6 +379,7 @@ function spawnSpecificBubble(wordObj, xPosVW) {
     // Remove if went off screen
     setTimeout(() => {
         if (!b.parentNode || !gameState.isRunning) return;
+        if (gameState.mode !== 'learn' && roundId !== gameState.currentRoundId) return; // Prevent ghost timeouts from older rounds
 
         // Prevent off-screen penalty if bubble was already correctly clicked and is celebrating!
         if (b.classList.contains('popped') || b.classList.contains('bubble--correct')) {
@@ -387,7 +390,7 @@ function spawnSpecificBubble(wordObj, xPosVW) {
         if (idx > -1) gameState.activeBubbles.splice(idx, 1);
         b.remove();
         
-        if (gameState.mode !== 'learn' && wordObj.en === gameState.currentQuizTarget?.en) {
+        if (gameState.mode !== 'learn' && wordObj.en === gameState.currentQuizTarget?.en && !gameState.isTransitioning) {
             // Player truly missed the correct bubble!
             handleMissTarget();
         }
