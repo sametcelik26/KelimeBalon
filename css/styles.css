@@ -665,6 +665,8 @@ h3 {
         flex-direction: row;
         justify-content: space-between;
         padding: 10px;
+        flex-wrap: wrap; /* Fix missing UI elements on mobile */
+        gap: 10px;
     }
 
     .btn-icon {
