@@ -162,15 +162,17 @@
         <!-- Screen 3: Game -->
         <section id="game-screen" class="screen">
             <header class="game-ui">
-                <button id="btn-quit-game" class="btn-icon">⬅ Back</button>
-                <button id="btn-pause-game" class="btn-icon">⏸ Pause</button>
+                <div class="game-ui-controls">
+                    <button id="btn-quit-game" class="btn-icon">⬅<span class="desktop-text"> Back</span></button>
+                    <button id="btn-pause-game" class="btn-icon">⏸<span class="desktop-text"> Pause</span></button>
+                    <!-- Optional: Audio toggle -->
+                    <button id="btn-toggle-sound" class="btn-icon">🔊</button>
+                </div>
                 <div class="game-stats glass-panel">
                     <span id="game-score">Score: 0</span>
                     <span class="divider-v"></span>
                     <span id="game-multiplier">x1</span>
                 </div>
-                <!-- Optional: Audio toggle -->
-                <button id="btn-toggle-sound" class="btn-icon">🔊</button>
             </header>
 
             <!-- Quiz Target UI (Only active in Quiz / Listen modes) -->

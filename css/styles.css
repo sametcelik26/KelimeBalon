@@ -421,6 +421,13 @@ h3 {
     align-items: center;
     position: relative;
     z-index: 20;
+    width: 100%;
+}
+
+.game-ui-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
 }
 
 .btn-icon {
@@ -662,22 +669,39 @@ h3 {
 
     /* Game adjustments */
     .game-ui {
-        flex-direction: row;
-        justify-content: space-between;
-        padding: 10px;
-        flex-wrap: wrap; /* Fix missing UI elements on mobile */
+        flex-direction: column;
+        justify-content: center;
+        padding: 5px;
         gap: 10px;
+        width: 100%;
+    }
+
+    .game-ui-controls {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .desktop-text {
+        display: none;
     }
 
     .btn-icon {
-        padding: 8px 12px;
+        padding: 8px 10px;
         font-size: 0.85rem;
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
 
     .game-stats {
         padding: 8px 12px;
         font-size: 0.9rem;
         gap: 10px;
+        width: 100%;
+        justify-content: center;
     }
 
     #quiz-target-container {
