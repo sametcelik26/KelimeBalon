@@ -326,7 +326,7 @@ function stopGame() {
 }
 
 function updateScoreUI() {
-    scoreEl.innerText = `Score: ${gameState.score}`;
+    scoreEl.innerHTML = `<span class="nav-text">Score: </span>${gameState.score}`;
     multiEl.innerText = `x${Math.floor(gameState.combo / 3) + 1}`;
 }
 

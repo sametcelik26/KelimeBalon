@@ -200,13 +200,13 @@ btnStartGame.onclick = () => {
     }
 
     showScreen(screenGame);
-    btnPauseGame.innerText = '⏸ Pause';
+    btnPauseGame.innerHTML = '⏸ <span class="nav-text">Pause</span>';
     window.gameEngine.startGame(selectedGameMode, wordsPool, lang);
 };
 
 btnPauseGame.onclick = () => {
     const isPaused = window.gameEngine.togglePause();
-    btnPauseGame.innerText = isPaused ? '▶ Resume' : '⏸ Pause';
+    btnPauseGame.innerHTML = isPaused ? '▶ <span class="nav-text">Resume</span>' : '⏸ <span class="nav-text">Pause</span>';
 };
 
 btnQuitGame.onclick = () => {
